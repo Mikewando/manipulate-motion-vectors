@@ -14,7 +14,6 @@ const ScaleVectData = struct {
     scale_y: u8,
 };
 
-// TODO use native endianness?
 fn readInt(comptime T: type, input_buffer: []u8, position: u32) struct { T, u32 } {
     const size = comptime @sizeOf(T);
     const value = std.mem.readInt(T, input_buffer[position..][0..size], .little);
@@ -25,7 +24,7 @@ fn scaleInt(comptime T: type, input_buffer: []u8, position: u32, scale: u8) u32 
     const size = comptime @sizeOf(T);
     const value = std.mem.readInt(T, input_buffer[position..][0..size], .little);
     std.mem.writeInt(T, input_buffer[position..][0..size], value * scale, .little);
-    return position + @sizeOf(T);
+    return position + size;
 }
 
 export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, instance_data: ?*anyopaque, frame_data: ?*?*anyopaque, frame_ctx: ?*vs.FrameContext, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) ?*const vs.Frame {
@@ -44,11 +43,13 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
         var position: u32 = 0;
         const analysis_data_in = vsapi.?.mapGetData.?(props, "MVTools_MVAnalysisData", 0, &err);
         if (err != .Success) {
-            // TODO error handling I guess
+            vsapi.?.setFilterError.?("Could not read MVTools_MVAnalysisData property when attempting to scale vectors.", frame_ctx);
+            return null;
         }
         const analysis_data_len: u32 = @intCast(vsapi.?.mapGetDataSize.?(props, "MVTools_MVAnalysisData", 0, &err));
         if (err != .Success) {
-            // TODO error handling I guess
+            vsapi.?.setFilterError.?("Could not read MVTools_MVAnalysisData property when attempting to scale vectors.", frame_ctx);
+            return null;
         }
 
         const analysis_data_out = allocator.alloc(u8, analysis_data_len) catch unreachable;
@@ -77,7 +78,6 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
         position = scaleInt(u32, analysis_data_out, position, d.scale_x); // padding_x
         position = scaleInt(u32, analysis_data_out, position, d.scale_y); // padding_y
 
-        // TODO error handling I guess
         _ = vsapi.?.mapSetData.?(props, "MVTools_MVAnalysisData", analysis_data_out.ptr, @intCast(analysis_data_len), .Binary, .Replace);
 
         // *** Scale vectors ***
@@ -85,11 +85,13 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
         position = 0;
         const vector_data_in = vsapi.?.mapGetData.?(props, "MVTools_vectors", 0, &err);
         if (err != .Success) {
-            // TODO error handling I guess
+            vsapi.?.setFilterError.?("Could not read MVTools_vectors property when attempting to scale vectors.", frame_ctx);
+            return null;
         }
         const vector_data_len: u32 = @intCast(vsapi.?.mapGetDataSize.?(props, "MVTools_vectors", 0, &err));
         if (err != .Success) {
-            // TODO error handling I guess
+            vsapi.?.setFilterError.?("Could not read MVTools_vectors property when attempting to scale vectors.", frame_ctx);
+            return null;
         }
 
         const vector_data_out = allocator.alloc(u8, vector_data_len) catch unreachable;
@@ -97,7 +99,7 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
         std.mem.copyForwards(u8, vector_data_out, vector_data_in[0..vector_data_len]);
 
         const size, position = readInt(u32, vector_data_out, position);
-        // TODO assert size == data_len
+        std.debug.assert(vector_data_len == size);
 
         const validity_int, position = readInt(u32, vector_data_out, position);
         if (validity_int == 1) {
@@ -112,7 +114,7 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
                 }
             }
         }
-        // TODO error handling I guess
+
         _ = vsapi.?.mapSetData.?(props, "MVTools_vectors", vector_data_out.ptr, @intCast(vector_data_len), .Binary, .Replace);
 
         return src.frame;
@@ -146,7 +148,7 @@ export fn createScaleVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*anyopa
             .requestPattern = .General,
         },
     };
-    vsapi.?.createVideoFilter.?(out, "Invert", d.vi, getFrameScaleVect, freeScaleVect, .Parallel, &deps, deps.len, data, core);
+    vsapi.?.createVideoFilter.?(out, "ScaleVect", d.vi, getFrameScaleVect, freeScaleVect, .Parallel, &deps, deps.len, data, core);
 }
 
 export fn VapourSynthPluginInit2(plugin: *vs.Plugin, vsapi: *const vs.PLUGINAPI) void {
