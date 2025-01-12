@@ -2,9 +2,9 @@
     .name = "manipulate-motion-vectors",
     .version = "0.0.1",
     .dependencies = .{
-        .vszip = .{
-            .url = "git+https://github.com/dnjulek/vapoursynth-zip.git?ref=R3#1d25cd1cc253f50c4c683a03e45ef3869751203a",
-            .hash = "12203d1bd22cb86bc2f9e1459dd7b92b56edb9591b08c0d8984633b2dcef1d59426c",
+        .vapoursynth = .{
+            .url = "git+https://github.com/dnjulek/vapoursynth-zig.git#f387003fb2dbdeb2e50b8b4530e9485d4098b2c5",
+            .hash = "122039953584f904643a2cfed6c6bcb8e4553044cd8dd5a02bee3248104c38daf600",
         },
     },
 
