@@ -1,9 +1,8 @@
 const std = @import("std");
 const vapoursynth = @import("vapoursynth");
 
-pub const vs = vapoursynth.vapoursynth4;
-pub const vsh = vapoursynth.vshelper;
-pub const zapi = vapoursynth.zigapi;
+const vs = vapoursynth.vapoursynth4;
+const zapi = vapoursynth.zigapi;
 
 const allocator = std.heap.c_allocator;
 
@@ -14,16 +13,24 @@ const ScaleVectData = struct {
     scale_y: u8,
 };
 
-fn readInt(comptime T: type, input_buffer: []u8, position: u32) struct { T, u32 } {
+fn readAndCopyInt(comptime T: type, input_buffer: [*]const u8, output_buffer: []u8, position: u32) struct { T, u32 } {
     const size = comptime @sizeOf(T);
     const value = std.mem.readInt(T, input_buffer[position..][0..size], .little);
+    std.mem.writeInt(T, output_buffer[position..][0..size], value, .little);
     return .{ value, position + size };
 }
 
-fn scaleInt(comptime T: type, input_buffer: []u8, position: u32, scale: u8) u32 {
+fn copyInt(comptime T: type, input_buffer: [*]const u8, output_buffer: []u8, position: u32) u32 {
     const size = comptime @sizeOf(T);
     const value = std.mem.readInt(T, input_buffer[position..][0..size], .little);
-    std.mem.writeInt(T, input_buffer[position..][0..size], value * scale, .little);
+    std.mem.writeInt(T, output_buffer[position..][0..size], value, .little);
+    return position + size;
+}
+
+fn scaleInt(comptime T: type, input_buffer: [*]const u8, output_buffer: []u8, position: u32, scale: u8) u32 {
+    const size = comptime @sizeOf(T);
+    const value = std.mem.readInt(T, input_buffer[position..][0..size], .little);
+    std.mem.writeInt(T, output_buffer[position..][0..size], value * scale, .little);
     return position + size;
 }
 
@@ -40,7 +47,6 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
 
         // *** Scale analysis data ***
 
-        var position: u32 = 0;
         const analysis_data_in = vsapi.?.mapGetData.?(props, "MVTools_MVAnalysisData", 0, &err);
         if (err != .Success) {
             vsapi.?.setFilterError.?("Could not read MVTools_MVAnalysisData property when attempting to scale vectors.", frame_ctx);
@@ -51,38 +57,38 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
             vsapi.?.setFilterError.?("Could not read MVTools_MVAnalysisData property when attempting to scale vectors.", frame_ctx);
             return null;
         }
+        std.debug.assert(analysis_data_len == 21 * comptime @sizeOf(u32));
 
         const analysis_data_out = allocator.alloc(u8, analysis_data_len) catch unreachable;
         defer allocator.free(analysis_data_out);
-        std.mem.copyForwards(u8, analysis_data_out, analysis_data_in[0..analysis_data_len]);
 
-        position += @sizeOf(u32); // magic_key (uninitialized)
-        position += @sizeOf(u32); // version (uninitialized)
-        position = scaleInt(u32, analysis_data_out, position, d.scale_x); // block_size_x
-        position = scaleInt(u32, analysis_data_out, position, d.scale_y); // block_size_y
-        position += @sizeOf(u32); // pel
-        position += @sizeOf(u32); // level_count
-        position += @sizeOf(u32); // delta_frame
-        position += @sizeOf(u32); // backwards
-        position += @sizeOf(u32); // cpu_flags
-        position += @sizeOf(u32); // motion_flags
-        position = scaleInt(u32, analysis_data_out, position, d.scale_x); // width
-        position = scaleInt(u32, analysis_data_out, position, d.scale_y); // height
-        position = scaleInt(u32, analysis_data_out, position, d.scale_x); // overlap_x
-        position = scaleInt(u32, analysis_data_out, position, d.scale_y); // overlap_y
-        position += @sizeOf(u32); // block_count_x
-        position += @sizeOf(u32); // block_count_y
-        position += @sizeOf(u32); // bits_per_sample
-        position += @sizeOf(u32); // chroma_ratio_y
-        position += @sizeOf(u32); // chroma_ratio_x
-        position = scaleInt(u32, analysis_data_out, position, d.scale_x); // padding_x
-        position = scaleInt(u32, analysis_data_out, position, d.scale_y); // padding_y
+        var position: u32 = 0;
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // magic_key (uninitialized)
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // version (uninitialized)
+        position = scaleInt(u32, analysis_data_in, analysis_data_out, position, d.scale_x); // block_size_x
+        position = scaleInt(u32, analysis_data_in, analysis_data_out, position, d.scale_y); // block_size_y
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // pel
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // level_count
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // delta_frame
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // backwards
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // cpu_flags
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // motion_flags
+        position = scaleInt(u32, analysis_data_in, analysis_data_out, position, d.scale_x); // width
+        position = scaleInt(u32, analysis_data_in, analysis_data_out, position, d.scale_y); // height
+        position = scaleInt(u32, analysis_data_in, analysis_data_out, position, d.scale_x); // overlap_x
+        position = scaleInt(u32, analysis_data_in, analysis_data_out, position, d.scale_y); // overlap_y
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // block_count_x
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // block_count_y
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // bits_per_sample
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // chroma_ratio_y
+        position = copyInt(u32, analysis_data_in, analysis_data_out, position); // chroma_ratio_x
+        position = scaleInt(u32, analysis_data_in, analysis_data_out, position, d.scale_x); // padding_x
+        position = scaleInt(u32, analysis_data_in, analysis_data_out, position, d.scale_y); // padding_y
 
         _ = vsapi.?.mapSetData.?(props, "MVTools_MVAnalysisData", analysis_data_out.ptr, @intCast(analysis_data_len), .Binary, .Replace);
 
         // *** Scale vectors ***
 
-        position = 0;
         const vector_data_in = vsapi.?.mapGetData.?(props, "MVTools_vectors", 0, &err);
         if (err != .Success) {
             vsapi.?.setFilterError.?("Could not read MVTools_vectors property when attempting to scale vectors.", frame_ctx);
@@ -96,21 +102,21 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
 
         const vector_data_out = allocator.alloc(u8, vector_data_len) catch unreachable;
         defer allocator.free(vector_data_out);
-        std.mem.copyForwards(u8, vector_data_out, vector_data_in[0..vector_data_len]);
 
-        const size, position = readInt(u32, vector_data_out, position);
+        position = 0;
+        const size, position = readAndCopyInt(u32, vector_data_in, vector_data_out, position);
         std.debug.assert(vector_data_len == size);
 
-        const validity_int, position = readInt(u32, vector_data_out, position);
+        const validity_int, position = readAndCopyInt(u32, vector_data_in, vector_data_out, position);
         if (validity_int == 1) {
             while (position < size) {
-                const level_size, const start_position = readInt(u32, vector_data_out, position);
+                const level_size, const start_position = readAndCopyInt(u32, vector_data_in, vector_data_out, position);
                 const end_position = position + level_size;
                 position = start_position;
                 while (position < end_position) {
-                    position = scaleInt(i32, vector_data_out, position, d.scale_x); // x
-                    position = scaleInt(i32, vector_data_out, position, d.scale_y); // y
-                    position = scaleInt(u64, vector_data_out, position, d.scale_x * d.scale_y); // SAD
+                    position = scaleInt(i32, vector_data_in, vector_data_out, position, d.scale_x); // x
+                    position = scaleInt(i32, vector_data_in, vector_data_out, position, d.scale_y); // y
+                    position = scaleInt(u64, vector_data_in, vector_data_out, position, d.scale_x * d.scale_y); // SAD
                 }
             }
         }
