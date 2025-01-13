@@ -22,8 +22,26 @@ jobs:
           zig build -Doptimize=ReleaseFast
 
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: manipmv.dll
           path: |
             zig-out/bin/manipmv.dll
+
+      - name: Export version
+        run: |
+          $version = ((zig build version -- show 2>&1) -split "`n")[-1]
+          "version=$version" >> $env:GITHUB_ENV
+
+      - name: Check tag
+        uses: mukunku/tag-exists-action@v1.6.0
+        id: check-tag
+        with:
+          tag: ${{ env.version }}
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.version }}
+          files: zig-out/bin/manipmv.dll
+        if: steps.check-tag.outputs.exists != 'true'
