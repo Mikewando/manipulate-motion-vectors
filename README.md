@@ -4,7 +4,7 @@ A vapoursynth plugin to do potentially useful things with motion vectors that ha
 
 ## Overview
 
-Motion vectors are useful for a variety of video processing tasks, and there is a long history of tooling related generating and using them. This historical tooling has generally coupled creating the motion vectors and consuming them into one plugin, MVTools. But it is the author's opinion that the decoupled tooling with a standard interface is reasonable and desirable. There is not quite a standard interface among the various versions and ports of MVTools so for now this plugin specifically targets the conventions used by [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools) (see the [assumed conventions](#assumed-conventions) section for details).
+Motion vectors are useful for a variety of video processing tasks, and there is a long history of tooling related generating and using them. This historical tooling has generally coupled creating the motion vectors and consuming them into one plugin, MVTools. But it is the author's opinion that decoupled tooling with a standard interface is reasonable and desirable. There is not quite a standard interface among the various versions and ports of MVTools so for now this plugin specifically targets the conventions used by [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools) (see the [assumed conventions](#assumed-conventions) section for details).
 
 ## Functions
 
@@ -116,3 +116,20 @@ u32 size
 ```
 
 Again without any padding. The value stored in size is therefore expected to be equivalent to the size which vapoursynth reports for the frame property.
+
+## Maintenance notes
+
+>[!INFO]
+>This section is just so the maintainer doesn't forget how the repo is setup. This isn't really relevant for users.
+
+In theory everything is setup such that the following steps are sufficient to build the library and create a github release with the `manipmv.dll` attached.
+
+```sh
+zig build version -- inc --patch
+git commit -am "Bumping patch version"
+git push
+```
+
+The release body can then be edited to whatever seems appropriate.
+
+This depends on a number of third party github actions so any one of those could break. Zig could also make it easier or harder to get the version from build.zig.zon and the approach may need to be tweaked. For now it seems usable.

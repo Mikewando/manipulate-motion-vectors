@@ -14,8 +14,6 @@ jobs:
 
       - name: Setup zig
         uses: goto-bus-stop/setup-zig@v2.1.1
-        with:
-          cache: false
 
       - name: Build
         run: |
