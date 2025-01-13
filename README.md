@@ -119,7 +119,7 @@ Again without any padding. The value stored in size is therefore expected to be 
 
 ## Maintenance notes
 
->[!INFO]
+>[!NOTE]
 >This section is just so the maintainer doesn't forget how the repo is setup. This isn't really relevant for users.
 
 In theory everything is setup such that the following steps are sufficient to build the library and create a github release with the `manipmv.dll` attached.
