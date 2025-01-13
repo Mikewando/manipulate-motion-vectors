@@ -1,10 +1,14 @@
 .{
     .name = "manipulate-motion-vectors",
-    .version = "0.0.1",
+    .version = "1.0.0",
     .dependencies = .{
         .vapoursynth = .{
             .url = "git+https://github.com/dnjulek/vapoursynth-zig.git#f387003fb2dbdeb2e50b8b4530e9485d4098b2c5",
             .hash = "122039953584f904643a2cfed6c6bcb8e4553044cd8dd5a02bee3248104c38daf600",
+        },
+        .set_version = .{
+            .url = "git+https://github.com/ritalin/zig-set-version.git#db61db987b1bd6ec4a4fe867999aea6c7b228fdf",
+            .hash = "1220ca307fab053314edf01c8e7c6d338e300f1162d793a4bbaf958e57bd5f509446",
         },
     },
 
