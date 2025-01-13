@@ -1,0 +1,29 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup zig
+        uses: goto-bus-stop/setup-zig@v2.1.1
+        with:
+          cache: false
+
+      - name: Build
+        run: |
+          zig build -Doptimize=ReleaseFast
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: manipmv.dll
+          path: |
+            zig-out/bin/manipmv.dll
