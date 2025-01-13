@@ -112,15 +112,21 @@ This is ultimately structured as:
 
 ```
 u32 size
+u32 valid
 [] levels
 ```
 
-Again without any padding. The value stored in size is therefore expected to be equivalent to the size which vapoursynth reports for the frame property.
+Again without any padding. The value stored in size is therefore expected to be equivalent to the size which vapoursynth reports for the frame property. The valid value is expected to be 0 for situations where motion vectors are not present (e.g. the first frame of forwards vectors) and 1 for situations where motion vectors are present.
 
 ## Maintenance notes
 
 >[!NOTE]
 >This section is just so the maintainer doesn't forget how the repo is setup. This isn't really relevant for users.
+
+Tests can be run with
+```sh
+zig build test --summary all
+```
 
 In theory everything is setup such that the following steps are sufficient to build the library and create a github release with the `manipmv.dll` attached.
 
