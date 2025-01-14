@@ -35,18 +35,21 @@ Default value is the same as `scaleX`.
 ```py
 # Use vectors from 1080p clip to denoise 4K clip
 SCALE = 2
+HPAD = 16
+VPAD = 16
 clip = vs.core.std.BlankClip(3840, 2160)
 small_clip = clip.resize.Bilinear(clip.width // SCALE, clip.height // SCALE)
 
-small_msuper = small_clip.mv.Super()
+small_msuper = small_clip.mv.Super(hpad=HPAD, vpad=VPAD)
 small_forward = small_msuper.mv.Analyse()
 small_backward = small_msuper.mv.Analyse(isb=True)
 
-big_msuper = clip.mv.Super()
-upscaled_forward = small_forward.mvmanip.ScaleVect(SCALE)
-upscaled_backward = small_backward.mvmanip.ScaleVect(SCALE)
+big_msuper = clip.mv.Super(hpad=HPAD * 2, vpad=VPAD * 2)
+upscaled_forward = small_forward.manipmv.ScaleVect(SCALE)
+upscaled_backward = small_backward.manipmv.ScaleVect(SCALE)
 
 denoised = clip.mv.Degrain1(big_msuper, upscaled_backward, upscaled_forward)
+denoised.set_output()
 ```
 
 ## Assumed Conventions
