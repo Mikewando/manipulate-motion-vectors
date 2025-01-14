@@ -75,7 +75,7 @@ u32 block_size_x
 u32 block_size_y
 u32 pel
 u32 level_count
-u32 delta_frame
+i32 delta_frame
 u32 backwards
 u32 cpu_flags
 u32 motion_flags

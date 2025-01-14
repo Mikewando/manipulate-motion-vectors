@@ -23,7 +23,7 @@ pub fn scaleAnalysisData(in: []const u8, out: []u8, scale_x: u8, scale_y: u8) vo
     position = util.scaleInt(u32, in, out, position, scale_y); // block_size_y
     position = util.copyInt(u32, in, out, position); // pel
     position = util.copyInt(u32, in, out, position); // level_count
-    position = util.copyInt(u32, in, out, position); // delta_frame
+    position = util.copyInt(i32, in, out, position); // delta_frame
     position = util.copyInt(u32, in, out, position); // backwards
     position = util.copyInt(u32, in, out, position); // cpu_flags
     position = util.copyInt(u32, in, out, position); // motion_flags
