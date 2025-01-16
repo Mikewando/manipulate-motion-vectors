@@ -95,14 +95,18 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
     if (activation_reason == .Initial) {
         vsapi.?.requestFrameFilter.?(n, d.node, frame_ctx);
     } else if (activation_reason == .AllFramesReady) {
-        var src = zapi.Frame.init(d.node, n, frame_ctx, core, vsapi);
-        const props = src.getPropertiesRW();
+        var src = zapi.ZFrame.init(d.node, n, frame_ctx, core, vsapi);
+        var dst = src.copyFrame();
+        defer src.deinit();
+
+        const src_props = src.getProperties();
+        const dst_props = dst.getProperties();
 
         // *** Scale analysis data ***
 
-        const analysis_data_in = vsutil.getDataProp(vsapi, props, "MVTools_MVAnalysisData") catch {
+        const analysis_data_in = src_props.getData("MVTools_MVAnalysisData", 0) orelse {
             vsapi.?.setFilterError.?("Could not read MVTools_MVAnalysisData property when attempting to scale vectors.", frame_ctx);
-            src.deinit();
+            dst.deinit();
             return null;
         };
         std.debug.assert(analysis_data_in.len == 21 * comptime @sizeOf(u32));
@@ -112,13 +116,13 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
 
         scaleAnalysisData(analysis_data_in, analysis_data_out, d.scale_x, d.scale_y);
 
-        _ = vsapi.?.mapSetData.?(props, "MVTools_MVAnalysisData", analysis_data_out.ptr, @intCast(analysis_data_out.len), .Binary, .Replace);
+        dst_props.setData("MVTools_MVAnalysisData", analysis_data_out, .Binary, .Replace);
 
         // *** Scale vectors ***
 
-        const vector_data_in = vsutil.getDataProp(vsapi, props, "MVTools_vectors") catch {
+        const vector_data_in = src_props.getData("MVTools_vectors", 0) orelse {
             vsapi.?.setFilterError.?("Could not read MVTools_vectors property when attempting to scale vectors.", frame_ctx);
-            src.deinit();
+            dst.deinit();
             return null;
         };
 
@@ -127,9 +131,9 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
 
         scaleVectorData(vector_data_in, vector_data_out, d.scale_x, d.scale_y);
 
-        _ = vsapi.?.mapSetData.?(props, "MVTools_vectors", vector_data_out.ptr, @intCast(vector_data_out.len), .Binary, .Replace);
+        dst_props.setData("MVTools_vectors", vector_data_out, .Binary, .Replace);
 
-        return src.frame;
+        return dst.frame;
     }
     return null;
 }
@@ -144,12 +148,12 @@ export fn freeScaleVect(instance_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*co
 pub export fn createScaleVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) void {
     _ = user_data;
     var d: FunctionData = undefined;
-    var map = zapi.Map.init(in, out, vsapi);
+    var map_in = zapi.ZMap.init(in, vsapi);
 
-    d.node, d.vi = map.getNodeVi("clip");
+    d.node, d.vi = map_in.getNodeVi("clip");
 
-    d.scale_x = map.getInt(u8, "scaleX") orelse 1;
-    d.scale_y = map.getInt(u8, "scaleY") orelse d.scale_x;
+    d.scale_x = map_in.getInt(u8, "scaleX") orelse 1;
+    d.scale_y = map_in.getInt(u8, "scaleY") orelse d.scale_x;
 
     const data: *FunctionData = allocator.create(FunctionData) catch unreachable;
     data.* = d;
