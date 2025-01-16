@@ -1,6 +1,6 @@
 .{
     .name = "manipulate-motion-vectors",
-    .version = "1.0.1",
+    .version = "1.1.0",
     .dependencies = .{
         .vapoursynth = .{
             .url = "git+https://github.com/dnjulek/vapoursynth-zig.git#2a3af1ae3d3d544bfbb90b8f61bb3a1ceacad9d6",
