@@ -5,7 +5,6 @@ const vs = vapoursynth.vapoursynth4;
 const zapi = vapoursynth.zigapi;
 
 const util = @import("../util.zig");
-const vsutil = @import("../vsutil.zig");
 
 const allocator = std.heap.c_allocator;
 
