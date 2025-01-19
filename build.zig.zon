@@ -3,8 +3,8 @@
     .version = "1.1.0",
     .dependencies = .{
         .vapoursynth = .{
-            .url = "git+https://github.com/dnjulek/vapoursynth-zig.git#2a3af1ae3d3d544bfbb90b8f61bb3a1ceacad9d6",
-            .hash = "12204517c4184153bd49e4f19bc38a7604bd2d4f840f43ac55f569b6f8bf5b8413d0",
+            .url = "git+https://github.com/dnjulek/vapoursynth-zig.git#94da91b6229a20c1b8d49825773becead339c1e9",
+            .hash = "12200b2cb28aa0c1e7eb62f23c05c40da6a8c1b4a80f81a187159c9a65cf7e2e7580",
         },
         .set_version = .{
             .url = "git+https://github.com/ritalin/zig-set-version.git#db61db987b1bd6ec4a4fe867999aea6c7b228fdf",
