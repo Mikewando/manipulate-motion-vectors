@@ -15,6 +15,8 @@ const FunctionData = struct {
     pel: u32,
     block_size_x: u32,
     block_size_y: u32,
+    use_sc_props: bool,
+    backwards: bool,
 };
 
 // The plugin function logic needs this type info, but it is only available at
@@ -119,6 +121,20 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
                 defer src.deinit();
                 const dst = src.copyFrame();
 
+                if (d.use_sc_props) {
+                    const src_props = src.getProperties();
+                    var scene_change = false;
+                    if (d.backwards) {
+                        scene_change = src_props.getBool("_SceneChangeNext") orelse false;
+                    } else {
+                        scene_change = src_props.getBool("_SceneChangePrev") orelse src_props.getBool("Scenechange") orelse false;
+                    }
+
+                    if (scene_change) {
+                        return dst.frame;
+                    }
+                }
+
                 var vector_src = zapi.ZFrame.init(d.vector_node, n, frame_ctx, core, vsapi);
                 defer vector_src.deinit();
                 const vector_data = vector_src.getProperties().getData("MVTools_vectors", 0) orelse {
@@ -197,6 +213,7 @@ pub export fn createShowVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*any
         vsapi.?.freeNode.?(d.vector_node);
         return;
     }
+    d.use_sc_props = map_in.getBool("useSceneChangeProps") orelse true;
 
     const peek = vsapi.?.getFrame.?(0, d.vector_node, null, 0);
     defer vsapi.?.freeFrame.?(peek);
@@ -211,6 +228,16 @@ pub export fn createShowVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*any
     d.block_size_x, _ = util.readInt(u32, analysis_data, 2 * comptime @sizeOf(u32));
     d.block_size_y, _ = util.readInt(u32, analysis_data, 3 * comptime @sizeOf(u32));
     d.pel, _ = util.readInt(u32, analysis_data, 4 * comptime @sizeOf(u32));
+    const backwards, _ = util.readInt(u32, analysis_data, 7 * comptime @sizeOf(u32));
+    const width, _ = util.readInt(u32, analysis_data, 10 * comptime @sizeOf(u32));
+    const height, _ = util.readInt(u32, analysis_data, 11 * comptime @sizeOf(u32));
+    if (d.node_vi.width != width or d.node_vi.height != height) {
+        map_out.setError("ShowVect requires that clip and vector dimensions match.");
+        vsapi.?.freeNode.?(d.node);
+        vsapi.?.freeNode.?(d.vector_node);
+        return;
+    }
+    d.backwards = backwards != 0;
 
     const data: *FunctionData = allocator.create(FunctionData) catch unreachable;
     data.* = d;
