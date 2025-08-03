@@ -1,14 +1,15 @@
 .{
-    .name = "manipulate-motion-vectors",
-    .version = "1.2.0",
+    .name = .manipulate_motion_vectors,
+    .version = "1.2.1",
+    .fingerprint = 0x522e4f75b0f608af,
     .dependencies = .{
         .vapoursynth = .{
             .url = "git+https://github.com/dnjulek/vapoursynth-zig.git#94da91b6229a20c1b8d49825773becead339c1e9",
             .hash = "12200b2cb28aa0c1e7eb62f23c05c40da6a8c1b4a80f81a187159c9a65cf7e2e7580",
         },
         .set_version = .{
-            .url = "git+https://github.com/ritalin/zig-set-version.git#db61db987b1bd6ec4a4fe867999aea6c7b228fdf",
-            .hash = "1220ca307fab053314edf01c8e7c6d338e300f1162d793a4bbaf958e57bd5f509446",
+            .url = "https://github.com/Mikewando/zig-set-version/archive/refs/heads/package-name-workaround.zip",
+            .hash = "zig_set_version-0.1.0-AAAAADhiAAACHOWv9wUBBMdyVTCCf1OTn5RD2q1TT0t8",
         },
     },
 
