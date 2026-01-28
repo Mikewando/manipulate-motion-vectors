@@ -5,6 +5,13 @@ on:
     branches:
       - main
 
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -44,4 +51,4 @@ jobs:
         with:
           tag_name: ${{ env.version }}
           files: zig-out/bin/manipmv.dll
-        if: steps.check-tag.outputs.exists != 'true'
+        if: github.event_name != 'pull_request' && steps.check-tag.outputs.exists != 'true'
