@@ -2,7 +2,7 @@ const std = @import("std");
 const vapoursynth = @import("vapoursynth");
 
 const vs = vapoursynth.vapoursynth4;
-const zapi = vapoursynth.zigapi;
+const ZAPI = vapoursynth.ZAPI;
 
 const util = @import("../util.zig");
 
@@ -109,20 +109,21 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
             }
         }
 
-        pub fn getFrame(n: c_int, activation_reason: vs.ActivationReason, instance_data: ?*anyopaque, frame_data: ?*?*anyopaque, frame_ctx: ?*vs.FrameContext, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) ?*const vs.Frame {
+        pub fn getFrame(n: c_int, activation_reason: vs.ActivationReason, instance_data: ?*anyopaque, frame_data: ?*?*anyopaque, frame_ctx: ?*vs.FrameContext, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.c) ?*const vs.Frame {
             _ = frame_data;
             const d: *FunctionData = @ptrCast(@alignCast(instance_data));
+            const zapi = ZAPI.init(vsapi, core, frame_ctx);
 
             if (activation_reason == .Initial) {
                 vsapi.?.requestFrameFilter.?(n, d.node, frame_ctx);
                 vsapi.?.requestFrameFilter.?(n, d.vector_node, frame_ctx);
             } else if (activation_reason == .AllFramesReady) {
-                var src = zapi.ZFrame.init(d.node, n, frame_ctx, core, vsapi);
+                var src = zapi.initZFrame(d.node, n);
                 defer src.deinit();
                 const dst = src.copyFrame();
 
                 if (d.use_sc_props) {
-                    const src_props = src.getProperties();
+                    const src_props = src.getPropertiesRO();
                     var scene_change = false;
                     if (d.backwards) {
                         scene_change = src_props.getBool("_SceneChangeNext") orelse false;
@@ -135,9 +136,9 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
                     }
                 }
 
-                var vector_src = zapi.ZFrame.init(d.vector_node, n, frame_ctx, core, vsapi);
+                var vector_src = zapi.initZFrame(d.vector_node, n);
                 defer vector_src.deinit();
-                const vector_data = vector_src.getProperties().getData("MVTools_vectors", 0) orelse {
+                const vector_data = vector_src.getPropertiesRO().getData("MVTools_vectors", 0) orelse {
                     return dst.frame;
                 };
 
@@ -187,7 +188,7 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
     };
 }
 
-export fn freeShowVect(instance_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) void {
+export fn freeShowVect(instance_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.c) void {
     _ = core;
     const d: *FunctionData = @ptrCast(@alignCast(instance_data));
     vsapi.?.freeNode.?(d.node);
@@ -195,13 +196,14 @@ export fn freeShowVect(instance_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*con
     allocator.destroy(d);
 }
 
-pub export fn createShowVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) void {
+pub export fn createShowVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.c) void {
     _ = user_data;
     var d: FunctionData = undefined;
-    var map_in = zapi.ZMap.init(in, vsapi);
-    var map_out = zapi.ZMap.init(out, vsapi);
+    const zapi = ZAPI.init(vsapi, core, null);
+    var map_in = zapi.initZMap(in);
+    var map_out = zapi.initZMap(out);
 
-    d.node, d.node_vi = map_in.getNodeVi("clip");
+    d.node, d.node_vi = map_in.getNodeVi("clip").?;
     d.vector_node = map_in.getNode("vectors");
     const supported_depth = switch (d.node_vi.format.bitsPerSample) {
         8, 10, 12, 16 => true,
@@ -217,7 +219,7 @@ pub export fn createShowVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*any
 
     const peek = vsapi.?.getFrame.?(0, d.vector_node, null, 0);
     defer vsapi.?.freeFrame.?(peek);
-    const props = zapi.ZMap.init(vsapi.?.getFramePropertiesRO.?(peek), vsapi);
+    const props = zapi.initZMap(vsapi.?.getFramePropertiesRO.?(peek));
     const analysis_data = props.getData("MVTools_MVAnalysisData", 0) orelse {
         map_out.setError("ShowVect could not infer analysis metadata.");
         vsapi.?.freeNode.?(d.node);
