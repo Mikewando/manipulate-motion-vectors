@@ -2,7 +2,7 @@ const std = @import("std");
 const vapoursynth = @import("vapoursynth");
 
 const vs = vapoursynth.vapoursynth4;
-const zapi = vapoursynth.zigapi;
+const ZAPI = vapoursynth.ZAPI;
 
 const util = @import("../util.zig");
 
@@ -13,19 +13,20 @@ const FunctionData = struct {
     vi: *const vs.VideoInfo,
 };
 
-export fn getFrameExpandAnalysisData(n: c_int, activation_reason: vs.ActivationReason, instance_data: ?*anyopaque, frame_data: ?*?*anyopaque, frame_ctx: ?*vs.FrameContext, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) ?*const vs.Frame {
+export fn getFrameExpandAnalysisData(n: c_int, activation_reason: vs.ActivationReason, instance_data: ?*anyopaque, frame_data: ?*?*anyopaque, frame_ctx: ?*vs.FrameContext, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.c) ?*const vs.Frame {
     _ = frame_data;
     const d: *FunctionData = @ptrCast(@alignCast(instance_data));
+    const zapi = ZAPI.init(vsapi, core, frame_ctx);
 
     if (activation_reason == .Initial) {
         vsapi.?.requestFrameFilter.?(n, d.node, frame_ctx);
     } else if (activation_reason == .AllFramesReady) {
-        var src = zapi.ZFrame.init(d.node, n, frame_ctx, core, vsapi);
+        var src = zapi.initZFrame(d.node, n);
         var dst = src.copyFrame();
         defer src.deinit();
 
-        const src_props = src.getProperties();
-        const dst_props = dst.getProperties();
+        const src_props = src.getPropertiesRO();
+        const dst_props = dst.getPropertiesRW();
 
         const analysis_data = src_props.getData("MVTools_MVAnalysisData", 0) orelse {
             vsapi.?.setFilterError.?("Could not read MVTools_MVAnalysisData property.", frame_ctx);
@@ -83,19 +84,20 @@ export fn getFrameExpandAnalysisData(n: c_int, activation_reason: vs.ActivationR
     return null;
 }
 
-export fn freeExpandAnalysisData(instance_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) void {
+export fn freeExpandAnalysisData(instance_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.c) void {
     _ = core;
     const d: *FunctionData = @ptrCast(@alignCast(instance_data));
     vsapi.?.freeNode.?(d.node);
     allocator.destroy(d);
 }
 
-pub export fn createExpandAnalysisData(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) void {
+pub export fn createExpandAnalysisData(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.c) void {
     _ = user_data;
     var d: FunctionData = undefined;
-    var map_in = zapi.ZMap.init(in, vsapi);
+    const zapi = ZAPI.init(vsapi, core, null);
+    var map_in = zapi.initZMap(in);
 
-    d.node, d.vi = map_in.getNodeVi("clip");
+    d.node, d.vi = map_in.getNodeVi("clip").?;
 
     const data: *FunctionData = allocator.create(FunctionData) catch unreachable;
     data.* = d;

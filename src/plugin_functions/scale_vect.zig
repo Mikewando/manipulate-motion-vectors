@@ -2,7 +2,7 @@ const std = @import("std");
 const vapoursynth = @import("vapoursynth");
 
 const vs = vapoursynth.vapoursynth4;
-const zapi = vapoursynth.zigapi;
+const ZAPI = vapoursynth.ZAPI;
 
 const util = @import("../util.zig");
 
@@ -87,19 +87,20 @@ test {
     try std.testing.expectEqual(24, std.mem.readInt(u64, output[5 * @sizeOf(u32) ..][0..8], .little));
 }
 
-export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, instance_data: ?*anyopaque, frame_data: ?*?*anyopaque, frame_ctx: ?*vs.FrameContext, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) ?*const vs.Frame {
+export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, instance_data: ?*anyopaque, frame_data: ?*?*anyopaque, frame_ctx: ?*vs.FrameContext, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.c) ?*const vs.Frame {
     _ = frame_data;
     const d: *FunctionData = @ptrCast(@alignCast(instance_data));
+    const zapi = ZAPI.init(vsapi, core, frame_ctx);
 
     if (activation_reason == .Initial) {
         vsapi.?.requestFrameFilter.?(n, d.node, frame_ctx);
     } else if (activation_reason == .AllFramesReady) {
-        var src = zapi.ZFrame.init(d.node, n, frame_ctx, core, vsapi);
+        var src = zapi.initZFrame(d.node, n);
         var dst = src.copyFrame();
         defer src.deinit();
 
-        const src_props = src.getProperties();
-        const dst_props = dst.getProperties();
+        const src_props = src.getPropertiesRO();
+        const dst_props = dst.getPropertiesRW();
 
         // *** Scale analysis data ***
 
@@ -110,10 +111,14 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
         };
         std.debug.assert(analysis_data_in.len == 21 * comptime @sizeOf(u32));
 
-        const analysis_data_out = allocator.alloc(u8, analysis_data_in.len) catch unreachable;
+        const analysis_data_out = allocator.allocSentinel(u8, analysis_data_in.len, 0) catch {
+            vsapi.?.setFilterError.?("Out of memory", frame_ctx);
+            dst.deinit();
+            return null;
+        };
         defer allocator.free(analysis_data_out);
 
-        scaleAnalysisData(analysis_data_in, analysis_data_out, d.scale_x, d.scale_y);
+        scaleAnalysisData(analysis_data_in, analysis_data_out[0..analysis_data_in.len], d.scale_x, d.scale_y);
 
         dst_props.setData("MVTools_MVAnalysisData", analysis_data_out, .Binary, .Replace);
 
@@ -125,31 +130,33 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
             return null;
         };
 
-        const vector_data_out = allocator.alloc(u8, vector_data_in.len) catch unreachable;
+        const vector_data_out = allocator.alloc(u8, vector_data_in.len + 1) catch unreachable;
         defer allocator.free(vector_data_out);
 
-        scaleVectorData(vector_data_in, vector_data_out, d.scale_x, d.scale_y);
+        scaleVectorData(vector_data_in, vector_data_out[0..vector_data_in.len], d.scale_x, d.scale_y);
+        vector_data_out[vector_data_in.len] = 0;
 
-        dst_props.setData("MVTools_vectors", vector_data_out, .Binary, .Replace);
+        dst_props.setData("MVTools_vectors", vector_data_out[0..vector_data_in.len :0], .Binary, .Replace);
 
         return dst.frame;
     }
     return null;
 }
 
-export fn freeScaleVect(instance_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) void {
+export fn freeScaleVect(instance_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.c) void {
     _ = core;
     const d: *FunctionData = @ptrCast(@alignCast(instance_data));
     vsapi.?.freeNode.?(d.node);
     allocator.destroy(d);
 }
 
-pub export fn createScaleVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.C) void {
+pub export fn createScaleVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*const vs.API) callconv(.c) void {
     _ = user_data;
     var d: FunctionData = undefined;
-    var map_in = zapi.ZMap.init(in, vsapi);
+    const zapi = ZAPI.init(vsapi, core, null);
+    var map_in = zapi.initZMap(in);
 
-    d.node, d.vi = map_in.getNodeVi("clip");
+    d.node, d.vi = map_in.getNodeVi("clip").?;
 
     d.scale_x = map_in.getInt(u8, "scaleX") orelse 1;
     d.scale_y = map_in.getInt(u8, "scaleY") orelse d.scale_x;
