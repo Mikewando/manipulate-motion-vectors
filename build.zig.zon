@@ -8,8 +8,8 @@
             .hash = "vapoursynth-4.0.0-jLYMQ799AgCA8sL5lgewK9acIrAKjs-ByT2pdKI5dHq2",
         },
         .set_version = .{
-            .url = "git+https://github.com/ritalin/zig-set-version#9fc39eaafd0bfd49090189fc6f772c24c1245c69",
-            .hash = "zig_set_version-0.2.0-VcSFVztkAAC2ZA9vFlkYsvHpDZLNGa9SlhKzuCGlO-10",
+            .url = "git+https://github.com/ritalin/zig-set-version#14c65c533cd85b02ed5a7cff35398a413b9b6a7b",
+            .hash = "zig_set_version-0.2.1-VcSFV0FkAAAr6WCGYZwuup5pWg62naL4FPuFiI0D5--P",
         },
     },
 
