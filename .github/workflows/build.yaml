@@ -12,9 +12,13 @@ on:
       - reopened
       - ready_for_review
 
+  workflow_dispatch: {}
+
 jobs:
   build-windows:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -28,6 +32,12 @@ jobs:
         run: |
           zig build -Doptimize=ReleaseFast
 
+      - name: Export version
+        id: version
+        run: |
+          $version = ((zig build version -- show 2>&1) -split "`n")[-1]
+          "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
@@ -35,20 +45,27 @@ jobs:
           path: |
             zig-out/bin/manipmv.dll
 
-      - name: Export version
-        run: |
-          $version = ((zig build version -- show 2>&1) -split "`n")[-1]
-          "version=$version" >> $env:GITHUB_ENV
-
+  release:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    environment: release
+    if: github.event_name == 'push'
+    steps:
       - name: Check tag
         uses: mukunku/tag-exists-action@v1.6.0
         id: check-tag
         with:
-          tag: ${{ env.version }}
+          tag: ${{ needs.build-windows.outputs.version }}
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: manipmv.dll
+        if: steps.check-tag.outputs.exists == 'false'
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.version }}
-          files: zig-out/bin/manipmv.dll
-        if: github.event_name != 'pull_request' && steps.check-tag.outputs.exists != 'true'
+          tag_name: ${{ needs.build-windows.outputs.version }}
+          files: manipmv.dll
+        if: steps.check-tag.outputs.exists == 'false'
