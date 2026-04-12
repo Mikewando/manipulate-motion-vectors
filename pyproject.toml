@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling", "packaging", "ziglang==0.15.2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vapoursynth-manipmv"
+description = "A vapoursynth plugin to do potentially useful things with motion vectors that have already been generated."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "LGPL-2.1-or-later"
+license-files = ["LICENSE"]
+authors = []
+keywords = []
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Plugins",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Zig",
+    "Topic :: Multimedia :: Video",
+]
+dependencies = [
+    "VapourSynth>=74",
+]
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/Mikewando/manipulate-motion-vectors.git"
+Issues = "https://github.com/Mikewando/manipulate-motion-vectors/issues"
+
+[tool.hatch.version]
+source = "regex"
+path = "build.zig.zon"
+pattern = '\.version\s*=\s*"(?P<version>[^"]+)"'
+
+[tool.hatch.build.targets.wheel]
+include = ["vapoursynth/plugins"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]

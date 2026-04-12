@@ -2,6 +2,14 @@
 
 A vapoursynth plugin to do potentially useful things with motion vectors that have already been generated.
 
+## Installation
+
+The plugin is available on PyPI and can be installed with:
+
+```sh
+python -m pip install vapoursynth-manipmv
+```
+
 ## Overview
 
 Motion vectors are useful for a variety of video processing tasks, and there is a long history of tooling related generating and using them. This historical tooling has generally coupled creating the motion vectors and consuming them into one plugin, MVTools. But it is the author's opinion that decoupled tooling with a standard interface is reasonable and desirable. There is not quite a standard interface among the various versions and ports of MVTools so for now this plugin specifically targets the conventions used by [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools) (see the [assumed conventions](#assumed-conventions) section for details).
@@ -205,7 +213,7 @@ Tests can be run with
 zig build test --summary all
 ```
 
-In theory everything is setup such that the following steps are sufficient to build the library and create a github release with the `manipmv.dll` attached.
+In theory everything is setup such that the following steps are sufficient to build the library, create a github release, and publish all the wheels to PyPI.
 
 ```sh
 zig build version -- inc --patch

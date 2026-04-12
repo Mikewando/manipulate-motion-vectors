@@ -15,57 +15,117 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build-sdist:
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      file: ${{ steps.build.outputs.file }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup zig
-        uses: mlugg/setup-zig@v2
-        with:
-          version: 0.15.2
-
-      - name: Build
-        run: |
-          zig build -Doptimize=ReleaseFast
+      - uses: actions/checkout@v6
 
       - name: Export version
         id: version
         run: |
-          $version = ((zig build version -- show 2>&1) -split "`n")[-1]
-          "version=$version" >> $env:GITHUB_OUTPUT
+          pipx run --spec ziglang python-zig build version -- show 2>version.txt
+          cat version.txt
+          version=$(tail -n 1 version.txt)
+          if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::Expected semver, got: $version"
+            exit 1
+          fi
+          echo "version=$version" >> $GITHUB_OUTPUT
 
-      - name: Upload
-        uses: actions/upload-artifact@v4
+      - name: Build sdist
+        id: build
+        run: |
+          pipx run build --sdist
+          echo "file=$(basename dist/*.tar.gz)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
         with:
-          name: manipmv.dll
-          path: |
-            zig-out/bin/manipmv.dll
+          name: vapoursynth-manipmv-sdist
+          path: dist/*.tar.gz
 
-  release:
-    needs: build-windows
+  build-wheel:
     runs-on: ubuntu-latest
-    environment: release
+    needs:
+      - build-sdist
+    strategy:
+      matrix:
+        include:
+          # Windows
+          - target: x86_64-windows
+            tag: win_amd64
+            cpus: "x86_64;x86_64_v2:v2;x86_64_v3:v3;x86_64_v4-prefer_256_bit:v4"
+          # Mac
+          - target: aarch64-macos
+            tag: macosx_11_0_arm64
+          - target: x86_64-macos
+            tag: macosx_11_0_x86_64
+          # Linux
+          - target: x86_64-linux-gnu.2.17
+            tag: manylinux_2_17_x86_64
+            cpus: "x86_64;x86_64_v2:v2;x86_64_v3:v3;x86_64_v4-prefer_256_bit:v4"
+          - target: aarch64-linux-gnu.2.17
+            tag: manylinux_2_17_aarch64
+          - target: x86_64-linux-musl
+            tag: musllinux_1_2_x86_64
+            cpus: "x86_64;x86_64_v2:v2;x86_64_v3:v3;x86_64_v4-prefer_256_bit:v4"
+          - target: aarch64-linux-musl
+            tag: musllinux_1_2_aarch64
+      fail-fast: false
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: vapoursynth-manipmv-sdist
+          path: sdist
+
+      - name: Build wheel
+        env:
+          MANIPMV_TARGET: ${{ matrix.target }}
+          MANIPMV_CPUS: ${{ matrix.cpus }}
+          MANIPMV_TAG: ${{ matrix.tag }}
+        run: |
+          pip wheel --no-deps -w dist sdist/${{ needs.build-sdist.outputs.file }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vapoursynth-manipmv-${{ matrix.target }}
+          path: dist/*.whl
+
+  check-tag:
     if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: build-sdist
+    outputs:
+      exists: ${{ steps.check-tag.outputs.exists }}
     steps:
       - name: Check tag
-        uses: mukunku/tag-exists-action@v1.6.0
+        uses: mukunku/tag-exists-action@v1.7.0
         id: check-tag
         with:
-          tag: ${{ needs.build-windows.outputs.version }}
+          tag: ${{ needs.build-sdist.outputs.version }}
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: manipmv.dll
-        if: steps.check-tag.outputs.exists == 'false'
+  release:
+    if: needs.check-tag.outputs.exists == 'false'
+    runs-on: ubuntu-latest
+    needs: 
+      - check-tag
+      - build-sdist
+      - build-wheel
+    permissions:
+      id-token: write
+    environment:
+      name: pypi-test
 
-      - name: Release
-        uses: softprops/action-gh-release@v2
+    steps:
+      - uses: actions/download-artifact@v8
         with:
-          tag_name: ${{ needs.build-windows.outputs.version }}
-          files: manipmv.dll
-        if: steps.check-tag.outputs.exists == 'false'
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.build-sdist.outputs.version }}
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
