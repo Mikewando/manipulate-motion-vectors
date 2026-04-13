@@ -117,7 +117,7 @@ jobs:
       id-token: write
       contents: write
     environment:
-      name: pypi-test
+      name: pypi
 
     steps:
       - uses: actions/download-artifact@v8
