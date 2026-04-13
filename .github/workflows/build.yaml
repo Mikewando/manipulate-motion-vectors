@@ -115,6 +115,7 @@ jobs:
       - build-wheel
     permissions:
       id-token: write
+      contents: write
     environment:
       name: pypi-test
 
