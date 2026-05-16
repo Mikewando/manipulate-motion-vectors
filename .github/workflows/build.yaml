@@ -28,7 +28,7 @@ jobs:
         run: |
           pipx run --spec ziglang python-zig build version -- show 2>version.txt
           cat version.txt
-          version=$(tail -n 1 version.txt)
+          version=$(awk 'NF' version.txt | tail -n 1)
           if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
             echo "::error::Expected semver, got: $version"
             exit 1
