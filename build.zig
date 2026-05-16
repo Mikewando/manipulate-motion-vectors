@@ -14,6 +14,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/manipmv.zig"),
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         }),
     });
 
@@ -24,13 +25,12 @@ pub fn build(b: *std.Build) void {
 
     // Pass the version in build.zig.zon to the code
     const options = b.addOptions();
-    const current_version: []const u8 = set_version.currentVersion(b.allocator) catch unreachable;
+    const current_version: []const u8 = set_version.currentVersion(b.graph.io, b.allocator) catch unreachable;
     const version = b.option([]const u8, "version", "Semantic version string") orelse current_version;
     options.addOption([]const u8, "version", version);
     lib.root_module.addOptions("config", options);
 
     lib.root_module.addImport("vapoursynth", vapoursynth_dep.module("vapoursynth"));
-    lib.linkLibC();
 
     if (lib.root_module.optimize == .ReleaseFast) {
         lib.root_module.strip = true;
