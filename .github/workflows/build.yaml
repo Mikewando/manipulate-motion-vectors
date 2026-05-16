@@ -56,7 +56,7 @@ jobs:
           # Windows
           - target: x86_64-windows
             tag: win_amd64
-            cpus: "x86_64;x86_64_v2:v2;x86_64_v3:v3;x86_64_v4-prefer_256_bit:v4"
+            cpus: "x86_64;haswell:avx2;znver4-sse4a:zn4"
           # Mac
           - target: aarch64-macos
             tag: macosx_11_0_arm64
@@ -65,12 +65,12 @@ jobs:
           # Linux
           - target: x86_64-linux-gnu.2.17
             tag: manylinux_2_17_x86_64
-            cpus: "x86_64;x86_64_v2:v2;x86_64_v3:v3;x86_64_v4-prefer_256_bit:v4"
+            cpus: "x86_64;haswell:avx2;znver4-sse4a:zn4"
           - target: aarch64-linux-gnu.2.17
             tag: manylinux_2_17_aarch64
           - target: x86_64-linux-musl
             tag: musllinux_1_2_x86_64
-            cpus: "x86_64;x86_64_v2:v2;x86_64_v3:v3;x86_64_v4-prefer_256_bit:v4"
+            cpus: "x86_64;haswell:avx2;znver4-sse4a:zn4"
           - target: aarch64-linux-musl
             tag: musllinux_1_2_aarch64
       fail-fast: false

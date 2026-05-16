@@ -36,7 +36,10 @@ pub fn build(b: *std.Build) void {
         lib.root_module.strip = true;
     }
 
-    b.installArtifact(lib);
+    // Avoid "lib" prefix on unix systems so the manifest doesn't need to be dynamic
+    const emitted = lib.getEmittedBin();
+    const out_name = b.fmt("{s}{s}", .{ lib.name, target.result.dynamicLibSuffix() });
+    b.getInstallStep().dependOn(&b.addInstallFile(emitted, out_name).step);
 
     // *** Tests ***
 
