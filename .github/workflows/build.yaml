@@ -25,8 +25,10 @@ jobs:
 
       - name: Export version
         id: version
+        # Can remove explicit cache dir creation when https://codeberg.org/ziglang/zig/issues/31964 lands in a release
         run: |
-          pipx run --spec ziglang python-zig build version -- show 2>&1 | tee version.txt
+          mkdir -p ~/.cache/zig/tmp
+          pipx run --spec ziglang==0.16.0 python-zig build version -- show 2>&1 | tee version.txt
           version=$(awk 'NF' version.txt | tail -n 1)
           if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
             echo "::error::Expected semver, got: $version"
