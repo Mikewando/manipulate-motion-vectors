@@ -11,14 +11,7 @@ const allocator = std.heap.c_allocator;
 const FunctionData = struct {
     node: ?*vs.Node,
     node_vi: *const vs.VideoInfo,
-    vector_node: ?*vs.Node,
-    pel: u32,
-    block_size_x: u32,
-    block_size_y: u32,
-    overlap_x: u32,
-    overlap_y: u32,
     use_sc_props: bool,
-    backwards: bool,
 };
 
 // The plugin function logic needs this type info, but it is only available at
@@ -29,17 +22,21 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
             block_index: u32,
             vector_x: i64,
             vector_y: i64,
-            d: *FunctionData,
+            width: u32,
+            height: u32,
+            block_size_x: u32,
+            block_size_y: u32,
+            overlap_x: u32,
+            overlap_y: u32,
+            pel: u32,
             stride: u32,
             dst_plane: []u8,
         ) void {
-            const width: u32 = @intCast(d.node_vi.width);
-            const height: u32 = @intCast(d.node_vi.height);
-            const stride_x = d.block_size_x - d.overlap_x;
-            const stride_y = d.block_size_y - d.overlap_y;
-            const blocks_per_row: u32 = (width - d.block_size_x) / stride_x + 1;
-            const block_center_offset_x: u32 = d.block_size_x / 2;
-            const block_center_offset_y: u32 = d.block_size_y / 2;
+            const stride_x = block_size_x - overlap_x;
+            const stride_y = block_size_y - overlap_y;
+            const blocks_per_row: u32 = (width - block_size_x) / stride_x + 1;
+            const block_center_offset_x: u32 = block_size_x / 2;
+            const block_center_offset_y: u32 = block_size_y / 2;
             const column: u32 = block_index % blocks_per_row;
             const row: u32 = block_index / blocks_per_row;
             const start_coord_x: i64 = column * stride_x + block_center_offset_x;
@@ -48,11 +45,11 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
             var short_len: i64 = undefined;
             var long_len: i64 = undefined;
             if (vector_x >= vector_y) {
-                short_len = @divTrunc(vector_y, d.pel);
-                long_len = @divTrunc(vector_x, d.pel);
+                short_len = @divTrunc(vector_y, pel);
+                long_len = @divTrunc(vector_x, pel);
             } else {
-                short_len = @divTrunc(vector_x, d.pel);
-                long_len = @divTrunc(vector_y, d.pel);
+                short_len = @divTrunc(vector_x, pel);
+                long_len = @divTrunc(vector_y, pel);
             }
 
             const end_val = long_len;
@@ -120,19 +117,22 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
 
             if (activation_reason == .Initial) {
                 vsapi.?.requestFrameFilter.?(n, d.node, frame_ctx);
-                vsapi.?.requestFrameFilter.?(n, d.vector_node, frame_ctx);
             } else if (activation_reason == .AllFramesReady) {
                 var src = zapi.initZFrame(d.node, n);
                 defer src.deinit();
+                const src_props = src.getPropertiesRO();
                 const dst = src.copyFrame();
 
                 if (d.use_sc_props) {
-                    const src_props = src.getPropertiesRO();
+                    const delta: u32 = src_props.getInt(u32, "MVUtensilsAnalysisDeltaFrame") orelse {
+                        return dst.frame;
+                    };
+                    const backwards = delta < 0;
                     var scene_change = false;
-                    if (d.backwards) {
+                    if (backwards) {
                         scene_change = src_props.getBool("_SceneChangeNext") orelse false;
                     } else {
-                        scene_change = src_props.getBool("_SceneChangePrev") orelse src_props.getBool("Scenechange") orelse false;
+                        scene_change = src_props.getBool("_SceneChangePrev") orelse false;
                     }
 
                     if (scene_change) {
@@ -140,37 +140,46 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
                     }
                 }
 
-                var vector_src = zapi.initZFrame(d.vector_node, n);
-                defer vector_src.deinit();
-                const vector_data = vector_src.getPropertiesRO().getData("MVTools_vectors", 0) orelse {
+                const vector_data = src_props.getData("MVUtensilsAnalysisVectors", 0) orelse {
+                    // No usable vectors
                     return dst.frame;
+                };
+                const width: u32 = @intCast(d.node_vi.width);
+                const height: u32 = @intCast(d.node_vi.height);
+                // TODO this should have less boilerplate
+                const block_size_x: u32 = src_props.getInt(u32, "MVUtensilsAnalysisBlkSizeX") orelse {
+                    vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisBlkSizeX property.", frame_ctx);
+                    dst.deinit();
+                    return null;
+                };
+                const block_size_y: u32 = src_props.getInt(u32, "MVUtensilsAnalysisBlkSizeY") orelse {
+                    vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisBlkSizeY property.", frame_ctx);
+                    dst.deinit();
+                    return null;
+                };
+                const overlap_x: u32 = src_props.getInt(u32, "MVUtensilsAnalysisOverlapX") orelse {
+                    vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisOverlapX property.", frame_ctx);
+                    dst.deinit();
+                    return null;
+                };
+                const overlap_y: u32 = src_props.getInt(u32, "MVUtensilsAnalysisOverlapY") orelse {
+                    vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisOverlapY property.", frame_ctx);
+                    dst.deinit();
+                    return null;
+                };
+                const pel: u32 = src_props.getInt(u32, "MVUtensilsAnalysisPel") orelse {
+                    vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisPel property.", frame_ctx);
+                    dst.deinit();
+                    return null;
                 };
 
                 var position: u32 = 0;
-                const vector_data_size, position = util.readInt(u32, vector_data, position);
-                std.debug.assert(vector_data.len == vector_data_size);
-
-                const validity_int, position = util.readInt(u32, vector_data, position);
-                if (validity_int != 1) {
-                    return dst.frame;
-                }
-
-                while (position < vector_data_size) {
-                    const level_size, const start_position = util.readInt(u32, vector_data, position);
-                    const end_position = position + level_size;
-                    position = start_position;
-                    // Skip all intermediate levels (for now only support drawing the last level)
-                    if (end_position != vector_data_size) {
-                        position = end_position;
-                        continue;
-                    }
-
-                    // Draw the level we care about
+                while (position < vector_data.len) {
                     const stride = dst.getStride(0);
                     const dst_plane = dst.getWriteSlice(0);
 
                     var block_index: u32 = 0;
-                    while (position < end_position) : (block_index += 1) {
+                    while (position < vector_data.len) : (block_index += 1) {
                         const vector_x, position = util.readInt(i32, vector_data, position);
                         const vector_y, position = util.readInt(i32, vector_data, position);
                         _, position = util.readInt(u64, vector_data, position);
@@ -179,7 +188,13 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
                             block_index,
                             @intCast(vector_x),
                             @intCast(vector_y),
-                            d,
+                            width,
+                            height,
+                            block_size_x,
+                            block_size_y,
+                            overlap_x,
+                            overlap_y,
+                            pel,
                             stride,
                             dst_plane,
                         );
@@ -196,7 +211,7 @@ export fn freeShowVect(instance_data: ?*anyopaque, core: ?*vs.Core, vsapi: ?*con
     _ = core;
     const d: *FunctionData = @ptrCast(@alignCast(instance_data));
     vsapi.?.freeNode.?(d.node);
-    vsapi.?.freeNode.?(d.vector_node);
+    //vsapi.?.freeNode.?(d.vector_node);
     allocator.destroy(d);
 }
 
@@ -208,7 +223,6 @@ pub export fn createShowVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*any
     var map_out = zapi.initZMap(out);
 
     d.node, d.node_vi = map_in.getNodeVi("clip").?;
-    d.vector_node = map_in.getNode("vectors");
     const supported_depth = switch (d.node_vi.format.bitsPerSample) {
         8, 10, 12, 16 => true,
         else => false,
@@ -216,36 +230,9 @@ pub export fn createShowVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*any
     if (d.node_vi.format.sampleType != .Integer or !supported_depth) {
         map_out.setError("ShowVect only supports 8/10/12/16 bit integer input.");
         vsapi.?.freeNode.?(d.node);
-        vsapi.?.freeNode.?(d.vector_node);
         return;
     }
     d.use_sc_props = map_in.getBool("useSceneChangeProps") orelse true;
-
-    const peek = vsapi.?.getFrame.?(0, d.vector_node, null, 0);
-    defer vsapi.?.freeFrame.?(peek);
-    const props = zapi.initZMap(vsapi.?.getFramePropertiesRO.?(peek));
-    const analysis_data = props.getData("MVTools_MVAnalysisData", 0) orelse {
-        map_out.setError("ShowVect could not infer analysis metadata.");
-        vsapi.?.freeNode.?(d.node);
-        vsapi.?.freeNode.?(d.vector_node);
-        return;
-    };
-    std.debug.assert(analysis_data.len == 21 * comptime @sizeOf(u32));
-    d.block_size_x, _ = util.readInt(u32, analysis_data, 2 * comptime @sizeOf(u32));
-    d.block_size_y, _ = util.readInt(u32, analysis_data, 3 * comptime @sizeOf(u32));
-    d.pel, _ = util.readInt(u32, analysis_data, 4 * comptime @sizeOf(u32));
-    const backwards, _ = util.readInt(u32, analysis_data, 7 * comptime @sizeOf(u32));
-    const width, _ = util.readInt(u32, analysis_data, 10 * comptime @sizeOf(u32));
-    const height, _ = util.readInt(u32, analysis_data, 11 * comptime @sizeOf(u32));
-    d.overlap_x, _ = util.readInt(u32, analysis_data, 12 * comptime @sizeOf(u32));
-    d.overlap_y, _ = util.readInt(u32, analysis_data, 13 * comptime @sizeOf(u32));
-    if (d.node_vi.width != width or d.node_vi.height != height) {
-        map_out.setError("ShowVect requires that clip and vector dimensions match.");
-        vsapi.?.freeNode.?(d.node);
-        vsapi.?.freeNode.?(d.vector_node);
-        return;
-    }
-    d.backwards = backwards != 0;
 
     const data: *FunctionData = allocator.create(FunctionData) catch unreachable;
     data.* = d;
@@ -253,10 +240,6 @@ pub export fn createShowVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*any
     var deps = [_]vs.FilterDependency{
         vs.FilterDependency{
             .source = d.node,
-            .requestPattern = .General,
-        },
-        vs.FilterDependency{
-            .source = d.vector_node,
             .requestPattern = .General,
         },
     };
