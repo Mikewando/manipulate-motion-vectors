@@ -17,25 +17,12 @@ const FunctionData = struct {
 
 pub fn scaleAnalysisData(in: []const u8, out: []u8, scale_x: u8, scale_y: u8) void {
     var position: u32 = 0;
-    position = util.copyInt(u32, in, out, position); // magic_key (uninitialized)
-    position = util.copyInt(u32, in, out, position); // version (uninitialized)
     position = util.scaleInt(u32, in, out, position, scale_x); // block_size_x
     position = util.scaleInt(u32, in, out, position, scale_y); // block_size_y
-    position = util.copyInt(u32, in, out, position); // pel
-    position = util.copyInt(u32, in, out, position); // level_count
-    position = util.copyInt(i32, in, out, position); // delta_frame
-    position = util.copyInt(u32, in, out, position); // backwards
-    position = util.copyInt(u32, in, out, position); // cpu_flags
-    position = util.copyInt(u32, in, out, position); // motion_flags
     position = util.scaleInt(u32, in, out, position, scale_x); // width
     position = util.scaleInt(u32, in, out, position, scale_y); // height
     position = util.scaleInt(u32, in, out, position, scale_x); // overlap_x
     position = util.scaleInt(u32, in, out, position, scale_y); // overlap_y
-    position = util.copyInt(u32, in, out, position); // block_count_x
-    position = util.copyInt(u32, in, out, position); // block_count_y
-    position = util.copyInt(u32, in, out, position); // bits_per_sample
-    position = util.copyInt(u32, in, out, position); // chroma_ratio_y
-    position = util.copyInt(u32, in, out, position); // chroma_ratio_x
     position = util.scaleInt(u32, in, out, position, scale_x); // padding_x
     position = util.scaleInt(u32, in, out, position, scale_y); // padding_y
 }
@@ -104,39 +91,95 @@ export fn getFrameScaleVect(n: c_int, activation_reason: vs.ActivationReason, in
 
         // *** Scale analysis data ***
 
-        const analysis_data_in = src_props.getData("MVTools_MVAnalysisData", 0) orelse {
-            vsapi.?.setFilterError.?("Could not read MVTools_MVAnalysisData property when attempting to scale vectors.", frame_ctx);
+        const block_size_x: u32 = src_props.getInt(u32, "MVUtensilsAnalysisBlkSizeX") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisBlkSizeX property.", frame_ctx);
             dst.deinit();
             return null;
         };
-        std.debug.assert(analysis_data_in.len == 21 * comptime @sizeOf(u32));
+        dst_props.setInt("MVUtensilsAnalysisBlkSizeX", block_size_x * d.scale_x, .Replace);
 
-        const analysis_data_out = allocator.allocSentinel(u8, analysis_data_in.len, 0) catch {
-            vsapi.?.setFilterError.?("Out of memory", frame_ctx);
+        const block_size_y: u32 = src_props.getInt(u32, "MVUtensilsAnalysisBlkSizeY") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisBlkSizeY property.", frame_ctx);
             dst.deinit();
             return null;
         };
-        defer allocator.free(analysis_data_out);
+        dst_props.setInt("MVUtensilsAnalysisBlkSizeY", block_size_y * d.scale_y, .Replace);
 
-        scaleAnalysisData(analysis_data_in, analysis_data_out[0..analysis_data_in.len], d.scale_x, d.scale_y);
+        const width: u32 = src_props.getInt(u32, "MVUtensilsAnalysisWidth") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisWidth property.", frame_ctx);
+            dst.deinit();
+            return null;
+        };
+        dst_props.setInt("MVUtensilsAnalysisWidth", width * d.scale_x, .Replace);
 
-        dst_props.setData("MVTools_MVAnalysisData", analysis_data_out, .Binary, .Replace);
+        const height: u32 = src_props.getInt(u32, "MVUtensilsAnalysisHeight") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisHeight property.", frame_ctx);
+            dst.deinit();
+            return null;
+        };
+        dst_props.setInt("MVUtensilsAnalysisHeight", height * d.scale_y, .Replace);
+
+        const real_width: u32 = src_props.getInt(u32, "MVUtensilsAnalysisRealWidth") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisRealWidth property.", frame_ctx);
+            dst.deinit();
+            return null;
+        };
+        dst_props.setInt("MVUtensilsAnalysisRealWidth", real_width * d.scale_x, .Replace);
+
+        const real_height: u32 = src_props.getInt(u32, "MVUtensilsAnalysisRealHeight") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisRealHeight property.", frame_ctx);
+            dst.deinit();
+            return null;
+        };
+        dst_props.setInt("MVUtensilsAnalysisRealHeight", real_height * d.scale_y, .Replace);
+
+        const overlap_x: u32 = src_props.getInt(u32, "MVUtensilsAnalysisOverlapX") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisOverlapX property.", frame_ctx);
+            dst.deinit();
+            return null;
+        };
+        dst_props.setInt("MVUtensilsAnalysisOverlapX", overlap_x * d.scale_x, .Replace);
+
+        const overlap_y: u32 = src_props.getInt(u32, "MVUtensilsAnalysisOverlapY") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisOverlapY property.", frame_ctx);
+            dst.deinit();
+            return null;
+        };
+        dst_props.setInt("MVUtensilsAnalysisOverlapY", overlap_y * d.scale_y, .Replace);
+
+        const padding_x: u32 = src_props.getInt(u32, "MVUtensilsAnalysisHPad") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisHPad property.", frame_ctx);
+            dst.deinit();
+            return null;
+        };
+        dst_props.setInt("MVUtensilsAnalysisHPad", padding_x * d.scale_x, .Replace);
+
+        const padding_y: u32 = src_props.getInt(u32, "MVUtensilsAnalysisVPad") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisVPad property.", frame_ctx);
+            dst.deinit();
+            return null;
+        };
+        dst_props.setInt("MVUtensilsAnalysisVPad", padding_y * d.scale_y, .Replace);
 
         // *** Scale vectors ***
 
-        const vector_data_in = src_props.getData("MVTools_vectors", 0) orelse {
-            vsapi.?.setFilterError.?("Could not read MVTools_vectors property when attempting to scale vectors.", frame_ctx);
+        const vector_data_in = src_props.getIntArray("MVUtensilsAnalysisVectors") orelse {
+            vsapi.?.setFilterError.?("Could not read MVUtensilsAnalysisVectors property.", frame_ctx);
             dst.deinit();
             return null;
         };
 
-        const vector_data_out = allocator.alloc(u8, vector_data_in.len + 1) catch unreachable;
+        const vector_data_out = allocator.alloc(i64, vector_data_in.len) catch unreachable;
         defer allocator.free(vector_data_out);
 
-        scaleVectorData(vector_data_in, vector_data_out[0..vector_data_in.len], d.scale_x, d.scale_y);
-        vector_data_out[vector_data_in.len] = 0;
+        for (vector_data_in, 0..) |vectors, block_index| {
+            const vector_x = @as(i32, @truncate(vectors));
+            const vector_y = @as(i32, @truncate(vectors >> 32));
 
-        dst_props.setData("MVTools_vectors", vector_data_out[0..vector_data_in.len :0], .Binary, .Replace);
+            vector_data_out[block_index] = (vector_x * d.scale_x) | (@as(i64, vector_y * d.scale_y) << 32);
+        }
+
+        dst_props.setIntArray("MVUtensilsAnalysisVectors", vector_data_out);
 
         return dst.frame;
     }

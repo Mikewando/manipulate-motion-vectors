@@ -4,8 +4,8 @@
     .fingerprint = 0x522e4f75b0f608af,
     .dependencies = .{
         .vapoursynth = .{
-            .url = "git+https://github.com/dnjulek/vapoursynth-zig#8e93fe3433bb977135f81040bb59d964c58a1cb9",
-            .hash = "vapoursynth-4.0.0-jLYMQ799AgCA8sL5lgewK9acIrAKjs-ByT2pdKI5dHq2",
+            .url = "git+https://github.com/dnjulek/vapoursynth-zig#b87ff61ce680fa5a4cf7d44a9cb4b605c5037432",
+            .hash = "vapoursynth-4.0.0-jLYMQ6DjAgDFOODh8tdhWCw0iGHMPKiR4znTJwSyvV36",
         },
         .set_version = .{
             .url = "git+https://github.com/ritalin/zig-set-version#1f3cd71ee0867b1f56c7ae421feddad4f85a55ff",
