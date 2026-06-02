@@ -1,6 +1,6 @@
 .{
     .name = .manipulate_motion_vectors,
-    .version = "1.4.0",
+    .version = "1.5.0",
     .fingerprint = 0x522e4f75b0f608af,
     .dependencies = .{
         .vapoursynth = .{
@@ -8,8 +8,8 @@
             .hash = "vapoursynth-4.0.0-jLYMQ799AgCA8sL5lgewK9acIrAKjs-ByT2pdKI5dHq2",
         },
         .set_version = .{
-            .url = "https://github.com/Mikewando/zig-set-version/archive/refs/heads/fix-current-version.zip",
-            .hash = "zig_set_version-0.3.0-VcSFV6tjAAAPABgbd4Ap5F0bE8QS2OUVFSZjSROqON_5",
+            .url = "git+https://github.com/ritalin/zig-set-version#1f3cd71ee0867b1f56c7ae421feddad4f85a55ff",
+            .hash = "zig_set_version-0.4.0-VcSFV3xkAAD0iesHfDhPukAR87ncMWYHeYkUe3ZRRoi1",
         },
     },
 

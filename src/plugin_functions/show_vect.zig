@@ -15,6 +15,8 @@ const FunctionData = struct {
     pel: u32,
     block_size_x: u32,
     block_size_y: u32,
+    overlap_x: u32,
+    overlap_y: u32,
     use_sc_props: bool,
     backwards: bool,
 };
@@ -33,13 +35,15 @@ fn formatHelper(comptime T: type, comptime bits_per_sample: u8) type {
         ) void {
             const width: u32 = @intCast(d.node_vi.width);
             const height: u32 = @intCast(d.node_vi.height);
-            const blocks_per_row: u32 = @divExact(width, d.block_size_x);
+            const stride_x = d.block_size_x - d.overlap_x;
+            const stride_y = d.block_size_y - d.overlap_y;
+            const blocks_per_row: u32 = (width - d.block_size_x) / stride_x + 1;
             const block_center_offset_x: u32 = d.block_size_x / 2;
             const block_center_offset_y: u32 = d.block_size_y / 2;
             const column: u32 = block_index % blocks_per_row;
             const row: u32 = block_index / blocks_per_row;
-            const start_coord_x: i64 = (column * d.block_size_x) + block_center_offset_x;
-            const start_coord_y: i64 = (row * d.block_size_y) + block_center_offset_y;
+            const start_coord_x: i64 = column * stride_x + block_center_offset_x;
+            const start_coord_y: i64 = row * stride_y + block_center_offset_y;
 
             var short_len: i64 = undefined;
             var long_len: i64 = undefined;
@@ -233,6 +237,8 @@ pub export fn createShowVect(in: ?*const vs.Map, out: ?*vs.Map, user_data: ?*any
     const backwards, _ = util.readInt(u32, analysis_data, 7 * comptime @sizeOf(u32));
     const width, _ = util.readInt(u32, analysis_data, 10 * comptime @sizeOf(u32));
     const height, _ = util.readInt(u32, analysis_data, 11 * comptime @sizeOf(u32));
+    d.overlap_x, _ = util.readInt(u32, analysis_data, 12 * comptime @sizeOf(u32));
+    d.overlap_y, _ = util.readInt(u32, analysis_data, 13 * comptime @sizeOf(u32));
     if (d.node_vi.width != width or d.node_vi.height != height) {
         map_out.setError("ShowVect requires that clip and vector dimensions match.");
         vsapi.?.freeNode.?(d.node);
