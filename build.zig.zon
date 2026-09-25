@@ -1,6 +1,6 @@
 .{
     .name = .manipulate_motion_vectors,
-    .version = "1.5.0",
+    .version = "2.0.0",
     .fingerprint = 0x522e4f75b0f608af,
     .dependencies = .{
         .vapoursynth = .{
